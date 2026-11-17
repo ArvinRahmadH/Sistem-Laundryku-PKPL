@@ -17,7 +17,6 @@
             padding: 20px;
         }
         
-        /* Header pakai table karena DomPDF tidak support flexbox */
         .header-table {
             width: 100%;
             border-bottom: 3px solid #007bff;
@@ -63,7 +62,6 @@
             margin-top: 3px;
         }
         
-        /* Details table */
         .details-table {
             width: 100%;
             margin-bottom: 20px;
@@ -95,7 +93,6 @@
             color: #333;
         }
         
-        /* Items table */
         .items-table {
             width: 100%;
             border-collapse: collapse;
@@ -126,7 +123,6 @@
             text-align: right;
         }
         
-        /* Summary table */
         .summary-wrapper {
             width: 100%;
             margin-bottom: 20px;
@@ -161,7 +157,6 @@
             color: #007bff;
         }
         
-        /* Status badge */
         .status-badge {
             display: inline-block;
             padding: 3px 10px;
@@ -173,7 +168,6 @@
             border-radius: 3px;
         }
         
-        /* Notes box */
         .notes-box {
             background: #f8f9fa;
             padding: 10px 12px;
@@ -194,7 +188,6 @@
             line-height: 1.6;
         }
         
-        /* Signature */
         .signature-table {
             width: 100%;
             margin-top: 30px;
@@ -217,7 +210,6 @@
             color: #666;
         }
         
-        /* Thank you */
         .thank-you {
             text-align: center;
             margin-top: 20px;
@@ -266,6 +258,9 @@
                     <strong>Nama:</strong> {{ $order->customer_name }}<br>
                     <strong>Telepon:</strong> {{ $order->phone ?? '-' }}<br>
                     <strong>Alamat:</strong> {{ $order->address ?? '-' }}
+                    @if($order->customer)
+                        <br><strong>Tier:</strong> {{ ucfirst($order->customer->tier) }}
+                    @endif
                 </div>
             </td>
             <td>
@@ -285,10 +280,10 @@
         <thead>
             <tr>
                 <th style="width: 5%;">No</th>
-                <th style="width: 45%;">Deskripsi Layanan</th>
+                <th style="width: 40%;">Deskripsi Layanan</th>
                 <th style="width: 15%;">Berat</th>
-                <th style="width: 15%;">Harga</th>
-                <th style="width: 20%;" class="text-right">Subtotal</th>
+                <th style="width: 18%;">Harga /kg</th>
+                <th style="width: 22%;" class="text-right">Subtotal</th>
             </tr>
         </thead>
         <tbody>
@@ -302,7 +297,9 @@
                 </td>
                 <td>{{ $order->weight }} kg</td>
                 <td>Rp {{ number_format($order->price, 0, ',', '.') }}</td>
-                <td class="text-right">Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                <td class="text-right">
+                    Rp {{ number_format($order->subtotal ?? ($order->weight * $order->price), 0, ',', '.') }}
+                </td>
             </tr>
         </tbody>
     </table>
@@ -312,19 +309,32 @@
         <table class="summary-table">
             <tr>
                 <td class="label">Subtotal</td>
-                <td class="value">Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                <td class="value">
+                    Rp {{ number_format($order->subtotal ?? ($order->weight * $order->price), 0, ',', '.') }}
+                </td>
             </tr>
+            @if(($order->discount_amount ?? 0) > 0)
             <tr>
-                <td class="label">Diskon</td>
-                <td class="value">Rp 0</td>
+                <td class="label">
+                    Diskon Member ({{ $order->discount_percent ?? 0 }}%)
+                    @if($order->customer)
+                        - {{ ucfirst($order->customer->tier) }}
+                    @endif
+                </td>
+                <td class="value">
+                    - Rp {{ number_format($order->discount_amount, 0, ',', '.') }}
+                </td>
             </tr>
+            @endif
             <tr>
                 <td class="label">Pajak (0%)</td>
                 <td class="value">Rp 0</td>
             </tr>
             <tr class="total-row">
                 <td>Total</td>
-                <td class="value">Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                <td class="value">
+                    Rp {{ number_format($order->total_price ?? ($order->weight * $order->price), 0, ',', '.') }}
+                </td>
             </tr>
         </table>
     </div>

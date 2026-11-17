@@ -173,25 +173,10 @@
             text-transform: uppercase;
         }
         
-        .status-badge.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .status-badge.in_progress {
-            background: #cce5ff;
-            color: #004085;
-        }
-        
-        .status-badge.done {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .status-badge.delivered {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
+        .status-badge.pending { background: #fff3cd; color: #856404; }
+        .status-badge.in_progress { background: #cce5ff; color: #004085; }
+        .status-badge.done { background: #d4edda; color: #155724; }
+        .status-badge.delivered { background: #d1ecf1; color: #0c5460; }
         
         .invoice-footer {
             border-top: 1px solid #eee;
@@ -284,11 +269,6 @@
             text-decoration: none;
         }
         
-        .btn:active {
-            transform: translateY(0);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        
         .btn-icon {
             font-size: 15px;
             line-height: 1;
@@ -304,16 +284,6 @@
             color: #fff;
         }
         
-        .btn-print {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: #fff;
-        }
-        
-        .btn-print:hover {
-            background: linear-gradient(135deg, #0069d9 0%, #004494 100%);
-            color: #fff;
-        }
-        
         .btn-back {
             background: #fff;
             color: #6c757d;
@@ -325,29 +295,13 @@
             background: #f8f9fa;
             color: #495057;
             border-color: #adb5bd;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         
-        /* Print styles */
         @media print {
-            body {
-                background: #fff;
-                padding: 0;
-            }
-            
-            .invoice-container {
-                box-shadow: none;
-                padding: 20px;
-                max-width: 100%;
-            }
-            
-            .no-print {
-                display: none !important;
-            }
-            
-            .invoice-table tbody tr:hover {
-                background: transparent;
-            }
+            body { background: #fff; padding: 0; }
+            .invoice-container { box-shadow: none; padding: 20px; max-width: 100%; }
+            .no-print { display: none !important; }
+            .invoice-table tbody tr:hover { background: transparent; }
         }
     </style>
 </head>
@@ -378,6 +332,12 @@
                     <strong>Nama:</strong> {{ $order->customer_name }}<br>
                     <strong>Telepon:</strong> {{ $order->phone ?? '-' }}<br>
                     <strong>Alamat:</strong> {{ $order->address ?? '-' }}
+                    @if($order->customer)
+                        <br><strong>Tier:</strong> 
+                        <span class="badge" style="background: #007bff; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 10px;">
+                            {{ ucfirst($order->customer->tier) }}
+                        </span>
+                    @endif
                 </p>
             </div>
             <div class="detail-box">
@@ -400,7 +360,7 @@
                     <th>No</th>
                     <th>Deskripsi Layanan</th>
                     <th>Berat</th>
-                    <th>Harga</th>
+                    <th>Harga /kg</th>
                     <th class="text-right">Subtotal</th>
                 </tr>
             </thead>
@@ -415,7 +375,9 @@
                     </td>
                     <td>{{ $order->weight }} kg</td>
                     <td>Rp {{ number_format($order->price, 0, ',', '.') }}</td>
-                    <td class="text-right">Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                    <td class="text-right">
+                        Rp {{ number_format($order->subtotal ?? ($order->weight * $order->price), 0, ',', '.') }}
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -425,19 +387,32 @@
             <table class="summary-table">
                 <tr>
                     <td class="label">Subtotal</td>
-                    <td class="value">Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                    <td class="value">
+                        Rp {{ number_format($order->subtotal ?? ($order->weight * $order->price), 0, ',', '.') }}
+                    </td>
                 </tr>
+                @if(($order->discount_amount ?? 0) > 0)
                 <tr>
-                    <td class="label">Diskon</td>
-                    <td class="value">Rp 0</td>
+                    <td class="label">
+                        Diskon Member ({{ $order->discount_percent ?? 0 }}%)
+                        @if($order->customer)
+                            <br><small class="text-muted">- {{ ucfirst($order->customer->tier) }}</small>
+                        @endif
+                    </td>
+                    <td class="value text-danger">
+                        - Rp {{ number_format($order->discount_amount, 0, ',', '.') }}
+                    </td>
                 </tr>
+                @endif
                 <tr>
                     <td class="label">Pajak (0%)</td>
                     <td class="value">Rp 0</td>
                 </tr>
                 <tr class="total">
                     <td>Total</td>
-                    <td class="value">Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                    <td class="value">
+                        Rp {{ number_format($order->total_price ?? ($order->weight * $order->price), 0, ',', '.') }}
+                    </td>
                 </tr>
             </table>
         </div>
@@ -474,7 +449,7 @@
 
         <!-- Action Buttons (No Print) -->
         <div class="action-buttons no-print">
-            <a href="/orders/{{ $order->id }}/invoice" class="btn btn-download">
+            <a href="{{ route('orders.invoice', $order->id) }}" class="btn btn-success">
                 <span class="btn-icon">⬇</span>
                 <span>Download PDF</span>
             </a>

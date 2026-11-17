@@ -3,14 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\LaundryOrder;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 
-
 class LaundryOrderController extends Controller
 {
-    
+    /**
+     * Harga tetap per kg
+     */
+    private const PRICE_PER_KG = 10000;
+
     public function index(Request $request)
     {
         $limit = intval($request->get('limit', 10));
@@ -18,7 +22,7 @@ class LaundryOrderController extends Controller
         $orderBy = $request->get('orderBy', 'created_at');
         $sortBy = strtolower($request->get('sortBy', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        $query = LaundryOrder::query();
+        $query = LaundryOrder::with('customer');
 
         if ($search) {
             $query->where(function($q) use ($search) {
@@ -29,7 +33,6 @@ class LaundryOrderController extends Controller
             });
         }
 
-    
         if (!in_array($orderBy, ['id', 'customer_name', 'service_type', 'status', 'price', 'weight', 'created_at', 'updated_at'])) {
             $orderBy = 'created_at';
         }
@@ -39,47 +42,47 @@ class LaundryOrderController extends Controller
         return response()->json($paginator, 200);
     }
 
-    
     public function store(Request $request)
-{
-    $data = $request->validate([
-        'customer_name' => 'required|string|max:255',
-        'phone' => 'nullable|string|max:50',
-        'address' => 'nullable|string',
-        'service_type' => ['required', Rule::in(['kiloan','dry_cleaning','antar_jemput','setrika_premium'])],
-        'weight' => 'nullable|numeric|min:0',
-        'status' => ['nullable', Rule::in(['pending','in_progress','done','delivered'])],
-        'price' => 'nullable|integer|min:0',
-        'notes' => 'nullable|string',
-        'file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-    ]);
+    {
+        $data = $request->validate([
+            'customer_id'    => 'nullable|exists:customers,id',
+            'customer_name'  => 'required|string|max:255',
+            'phone'          => 'nullable|string|max:10',
+            'address'        => 'nullable|string',
+            'service_type'   => ['required', Rule::in(['kiloan','dry_cleaning','antar_jemput','setrika_premium'])],
+            'weight'         => 'required|numeric|min:0.1|max:200',
+            'status'         => ['nullable', Rule::in(['pending','in_progress','done','delivered'])],
+            'price'          => 'nullable|integer|min:0',
+            'notes'          => 'nullable|string',
+            'file'           => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:1000',
+        ]);
 
-    if ($request->hasFile('file')) {
-        $data['file_path'] = $request->file('file')->store('laundry', 'public');
+        $data['weight'] ??= 0;
+        $data['status'] ??= 'pending';
+        $data['price'] = self::PRICE_PER_KG; // ✅ Paksa harga Rp 10.000/kg
+
+        // Hitung diskon
+        $this->calculateDiscount($data);
+        // Upload file
+        if ($request->hasFile('file')) {
+            $data['file_path'] = $request->file('file')->store('laundry', 'public');
+        }
+
+        $order = LaundryOrder::create($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Order created',
+                'data' => $order
+            ], 201);
+        }
+
+        return redirect('/orders')->with('success', 'Order berhasil dibuat!');
     }
 
-    $data['weight'] ??= 0;
-    $data['status'] ??= 'pending';
-    $data['price'] ??= 0;
-
-    $order = LaundryOrder::create($data);
-
-    // Perbaikan di sini - handle web request
-    if ($request->expectsJson()) {
-        return response()->json([
-            'message' => 'Order created',
-            'data' => $order
-        ], 201);
-    }
-
-    // Untuk web request, redirect dengan flash message
-    return redirect('/orders')->with('success', 'Order berhasil dibuat!');
-}
-
-   
     public function show($id)
     {
-        $order = LaundryOrder::find($id);
+        $order = LaundryOrder::with('customer')->find($id);
 
         if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
@@ -88,51 +91,66 @@ class LaundryOrderController extends Controller
         return response()->json($order, 200);
     }
 
-    
     public function update(Request $request, $id)
-{
-    $order = LaundryOrder::find($id);
-    if (!$order) {
-        if ($request->expectsJson()) {
-            return response()->json(['message' => 'Order not found'], 404);
+    {
+        $order = LaundryOrder::find($id);
+        if (!$order) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Order not found'], 404);
+            }
+            return back()->with('error', 'Order not found');
         }
-        return back()->with('error', 'Order not found');
-    }
 
-    $data = $request->validate([
-        'customer_name' => 'sometimes|string|max:255',
-        'phone' => 'sometimes|nullable|string|max:50',
-        'address' => 'sometimes|nullable|string',
-        'service_type' => ['sometimes', Rule::in(['kiloan','dry_cleaning','antar_jemput','setrika_premium'])],
-        'weight' => 'sometimes|numeric|min:0',
-        'status' => ['sometimes', Rule::in(['pending','in_progress','done','delivered'])],
-        'price' => 'sometimes|integer|min:0',
-        'notes' => 'sometimes|nullable|string',
-        'file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-    ]);
-
-    if ($request->hasFile('file')) {
-        if ($order->file_path) {
-            Storage::disk('public')->delete($order->file_path);
-        }
-        $data['file_path'] = $request->file('file')->store('laundry', 'public');
-    }
-
-    $order->update($data);
-
-    // Handle web request
-    if ($request->expectsJson()) {
-        return response()->json([
-            'message' => 'Order updated',
-            'data' => $order
+        $data = $request->validate([
+            'customer_id'    => 'nullable|exists:customers,id',
+            'customer_name'  => 'sometimes|string|max:255',
+            'phone'          => 'sometimes|nullable|string|max:10',
+            'address'        => 'sometimes|nullable|string',
+            'service_type'   => ['sometimes', Rule::in(['kiloan','dry_cleaning','antar_jemput','setrika_premium'])],
+            'weight'         => 'required|numeric|min:0.1|max:200',
+            'status'         => ['sometimes', Rule::in(['pending','in_progress','done','delivered'])],
+            'price'          => 'sometimes|integer|min:0',
+            'notes'          => 'sometimes|nullable|string',
+            'file'           => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:1000',
         ]);
+
+        // ✅ Paksa harga Rp 10.000/kg
+        $data['price'] = self::PRICE_PER_KG;
+
+        // Gabungkan data lama + baru untuk hitung diskon
+        $mergedData = array_merge([
+            'weight'      => $order->weight,
+            'price'       => self::PRICE_PER_KG,
+            'customer_id' => $order->customer_id,
+        ], $data);
+
+        $this->calculateDiscount($mergedData);
+
+        $data['subtotal']         = $mergedData['subtotal'];
+        $data['discount_percent'] = $mergedData['discount_percent'];
+        $data['discount_amount']  = $mergedData['discount_amount'];
+        $data['total_price']      = $mergedData['total_price'];
+
+        // Upload file baru
+        if ($request->hasFile('file')) {
+            if ($order->file_path) {
+                Storage::disk('public')->delete($order->file_path);
+            }
+            $data['file_path'] = $request->file('file')->store('laundry', 'public');
+        }
+
+        $order->update($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Order updated',
+                'data' => $order
+            ]);
+        }
+
+        return redirect('/orders/' . $order->id)->with('success', 'Order berhasil diupdate!');
     }
 
-    return redirect('/orders/' . $order->id)->with('success', 'Order berhasil diupdate!');
-}
-
-
-    
     public function destroy($id)
     {
         $order = LaundryOrder::withTrashed()->find($id);
@@ -151,5 +169,32 @@ class LaundryOrderController extends Controller
         }
 
         return redirect('/orders')->with('success', 'Order berhasil dihapus');
+    }
+
+    /**
+     * Hitung subtotal, diskon, dan total berdasarkan tier customer
+     */
+
+
+    
+    private function calculateDiscount(array &$data): void
+    {
+        $subtotal = ($data['weight'] ?? 0) * self::PRICE_PER_KG;
+        $discountPercent = 0;
+
+        if (!empty($data['customer_id'])) {
+            $customer = Customer::find($data['customer_id']);
+            if ($customer) {
+                $discountPercent = $customer->discount_percent;
+            }
+        }
+
+        $discountAmount = $subtotal * ($discountPercent / 100);
+        $totalPrice = $subtotal - $discountAmount;
+
+        $data['subtotal']         = $subtotal;
+        $data['discount_percent'] = $discountPercent;
+        $data['discount_amount']  = $discountAmount;
+        $data['total_price']      = $totalPrice;
     }
 }

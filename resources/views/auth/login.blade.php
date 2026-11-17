@@ -10,6 +10,15 @@
                 <h4 class="mb-0"><i class="fas fa-sign-in-alt me-2"></i>Login</h4>
             </div>
             <div class="card-body">
+
+                {{-- ✅ Pesan sukses (setelah reset password) --}}
+                @if(session('success'))
+                    <div class="alert alert-success alert-dismissible fade show">
+                        <i class="fas fa-check-circle me-1"></i>{{ session('success') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                @endif
+
                 <form action="/login" method="POST">
                     @csrf
                     <div class="mb-3">
@@ -26,6 +35,14 @@
                             <div class="text-danger small">{{ $message }}</div>
                         @enderror
                     </div>
+
+                    {{-- ✅ Link Lupa Password --}}
+                    <div class="mb-3 text-end">
+                        <a href="{{ route('password.request') }}" class="small text-decoration-none">
+                            <i class="fas fa-key me-1"></i>Lupa Password?
+                        </a>
+                    </div>
+
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-sign-in-alt me-2"></i>Login

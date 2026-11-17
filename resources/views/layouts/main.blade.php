@@ -53,15 +53,31 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="/">
-                            <i class="fas fa-home me-1"></i> Dashboard
+                        <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="/">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->is('orders*') ? 'active' : '' }}" href="/orders">
-                            <i class="fas fa-list me-1"></i> Orders
+                        <a class="nav-link {{ request()->routeIs('orders.*') ? 'active' : '' }}" href="/orders">
+                            <i class="fas fa-list me-1"></i>Orders
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="/customers">
+                            <i class="fas fa-users me-1"></i>Customer
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('reports.history') ? 'active' : '' }}" href="/reports/history">
+                            <i class="fas fa-history me-1"></i>Riwayat Transaksi
+                        </a>
+                    </li>
+                    {{-- ✅ TAMBAHKAN INI --}}
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('reports.monthly*') ? 'active' : '' }}" href="/reports/monthly">
+                            <i class="fas fa-chart-bar me-1"></i>Laporan Bulanan
                         </a>
                     </li>
                 </ul>

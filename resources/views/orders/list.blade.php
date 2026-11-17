@@ -115,7 +115,14 @@
                                             </span>
                                         </td>
                                         <td>{{ $order->weight }} kg</td>
-                                        <td>Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                                        <td>
+                                            <strong>Rp {{ number_format($order->total_price ?? ($order->weight * $order->price), 0, ',', '.') }}</strong>
+                                            @if(($order->discount_amount ?? 0) > 0)
+                                                <br><small class="text-danger">
+                                                    <i class="fas fa-tag"></i> Diskon {{ $order->discount_percent }}%
+                                                </small>
+                                            @endif
+                                        </td>
                                         <td>{{ $order->created_at->format('d/m/Y') }}</td>
                                         <td>
                                             <div class="btn-group">

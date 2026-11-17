@@ -112,4 +112,80 @@ class AuthController extends Controller
             'expires_in' => auth('api')->factory()->getTTL() * 60
         ]);
     }
+
+        // ✅ ================= FORGOT PASSWORD (SIMPLE) =================
+
+    /**
+     * Tampilkan form input email
+     */
+    public function showForgotForm()
+    {
+        return view('auth.forgot-password');
+    }
+
+    /**
+     * Cek email, redirect ke form reset password
+     */
+    public function checkEmail(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Email wajib diisi.',
+            'email.email'    => 'Format email tidak valid.',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return back()
+                ->withErrors(['email' => 'Email tidak terdaftar di sistem.'])
+                ->onlyInput('email');
+        }
+
+        return redirect()->route('password.reset.form', ['email' => $user->email])
+                         ->with('success', 'Email ditemukan. Silakan masukkan password baru.');
+    }
+
+    /**
+     * Tampilkan form reset password
+     */
+    public function showResetForm(Request $request)
+    {
+        $email = $request->get('email');
+
+        if (!$email || !User::where('email', $email)->exists()) {
+            return redirect()->route('password.request')
+                             ->withErrors(['email' => 'Sesi tidak valid. Masukkan email kembali.']);
+        }
+
+        return view('auth.reset-password', compact('email'));
+    }
+
+    /**
+     * Simpan password baru
+     */
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email'    => 'required|email|exists:users,email',
+            'password' => 'required|min:6|max:40|confirmed',
+        ], [
+            'email.required'     => 'Email wajib diisi.',
+            'email.exists'       => 'Email tidak terdaftar.',
+            'password.required'  => 'Password baru wajib diisi.',
+            'password.min'       => 'Password minimal 6 karakter.',
+            'password.max'       => 'Password maksimal 20 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak cocok.',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return redirect()->route('login')
+                         ->with('success', 'Password berhasil direset! Silakan login dengan password baru.');
+    }
+
+    // ✅ ============ END FORGOT PASSWORD ============
 }

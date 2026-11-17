@@ -95,7 +95,7 @@
                                     <th>Service</th>
                                     <th>Status</th>
                                     <th>Weight (kg)</th>
-                                    <th>Price</th>
+                                    <th>Total</th>
                                     <th>Date</th>
                                     <th>Action</th>
                                 </tr>
@@ -103,7 +103,12 @@
                             <tbody>
                                 @foreach($orders as $order)
                                     <tr>
-                                        <td>{{ $order->customer_name }}</td>
+                                        <td>
+                                            {{ $order->customer_name }}
+                                            @if($order->customer)
+                                                <br><small>{!! $order->customer->tier_badge !!}</small>
+                                            @endif
+                                        </td>
                                         <td>
                                             @php
                                                 $services = [
@@ -129,11 +134,24 @@
                                             </span>
                                         </td>
                                         <td>{{ $order->weight }}</td>
-                                        <td>Rp {{ number_format($order->price, 0, ',', '.') }}</td>
+                                        <td>
+                                            {{-- ✅ TOTAL PRICE, BUKAN HARGA PER KG --}}
+                                            <strong>
+                                                Rp {{ number_format($order->total_price ?? ($order->weight * $order->price), 0, ',', '.') }}
+                                            </strong>
+                                            @if(($order->discount_amount ?? 0) > 0)
+                                                <br><small class="text-danger">
+                                                    <i class="fas fa-tag"></i> Diskon {{ $order->discount_percent }}%
+                                                </small>
+                                            @endif
+                                        </td>
                                         <td>{{ $order->created_at->format('d/m/Y') }}</td>
                                         <td>
-                                            <a href="/orders/{{ $order->id }}" class="btn btn-sm btn-info">
+                                            <a href="/orders/{{ $order->id }}" class="btn btn-sm btn-info" title="Detail">
                                                 <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="/orders/{{ $order->id }}/invoice" class="btn btn-sm btn-success" title="Invoice" target="_blank">
+                                                <i class="fas fa-file-pdf"></i>
                                             </a>
                                         </td>
                                     </tr>

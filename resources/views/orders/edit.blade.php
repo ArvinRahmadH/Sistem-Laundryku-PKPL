@@ -13,23 +13,48 @@
                 <form action="/orders/{{ $order->id }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     @method('PATCH')
+
+                    {{-- Dropdown Customer --}}
+                    <div class="mb-3">
+                        <label for="customer_id" class="form-label">
+                            <i class="fas fa-user-tag me-1"></i>Pilih Customer (Member)
+                        </label>
+                        <select class="form-control" id="customer_id" name="customer_id">
+                            <option value="">-- Non Member --</option>
+                            @foreach($customers as $cust)
+                                <option value="{{ $cust->id }}" 
+                                        data-tier="{{ $cust->tier }}"
+                                        data-discount="{{ $cust->discount_percent }}"
+                                        {{ old('customer_id', $order->customer_id) == $cust->id ? 'selected' : '' }}>
+                                    {{ $cust->name }} - {{ ucfirst($cust->tier) }} ({{ $cust->discount_percent }}% off)
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Untuk tambah customer baru, buka menu 
+                            <a href="{{ route('customers.index') }}" target="_blank">Customer</a>
+                        </small>
+                    </div>
+
+                    {{-- Info Diskon --}}
+                    <div id="discount-info" class="alert alert-success {{ ($order->discount_percent ?? 0) > 0 ? '' : 'd-none' }}">
+                        <i class="fas fa-tag me-1"></i>
+                        <strong>Member Diskon:</strong> <span id="discount-text">{{ $order->discount_percent ?? 0 }}%</span>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="customer_name" class="form-label">Nama Customer <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="customer_name" name="customer_name" value="{{ $order->customer_name }}" required>
-                                @error('customer_name')
-                                    <div class="text-danger small">{{ $message }}</div>
-                                @enderror
+                                <input type="text" class="form-control" id="customer_name" name="customer_name" 
+                                       value="{{ $order->customer_name }}" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="phone" class="form-label">Nomor Telepon</label>
                                 <input type="text" class="form-control" id="phone" name="phone" value="{{ $order->phone }}">
-                                @error('phone')
-                                    <div class="text-danger small">{{ $message }}</div>
-                                @enderror
                             </div>
                         </div>
                     </div>
@@ -37,9 +62,6 @@
                     <div class="mb-3">
                         <label for="address" class="form-label">Alamat</label>
                         <textarea class="form-control" id="address" name="address" rows="2">{{ $order->address }}</textarea>
-                        @error('address')
-                            <div class="text-danger small">{{ $message }}</div>
-                        @enderror
                     </div>
 
                     <div class="row">
@@ -52,28 +74,49 @@
                                     <option value="antar_jemput" {{ $order->service_type == 'antar_jemput' ? 'selected' : '' }}>Antar Jemput</option>
                                     <option value="setrika_premium" {{ $order->service_type == 'setrika_premium' ? 'selected' : '' }}>Setrika Premium</option>
                                 </select>
-                                @error('service_type')
-                                    <div class="text-danger small">{{ $message }}</div>
-                                @enderror
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="mb-3">
-                                <label for="weight" class="form-label">Berat (kg)</label>
-                                <input type="number" step="0.1" class="form-control" id="weight" name="weight" min="0" value="{{ $order->weight }}">
-                                @error('weight')
-                                    <div class="text-danger small">{{ $message }}</div>
-                                @enderror
+                                <label for="weight" class="form-label">Berat (kg) <span class="text-danger">*</span></label>
+                                <input type="number" step="0.1" class="form-control" id="weight" name="weight" 
+                                       min="0" value="{{ $order->weight }}" required>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="mb-3">
-                                <label for="price" class="form-label">Harga (Rp)</label>
-                                <input type="number" class="form-control" id="price" name="price" min="0" value="{{ $order->price }}">
-                                @error('price')
-                                    <div class="text-danger small">{{ $message }}</div>
-                                @enderror
+                                <label for="price" class="form-label">Harga /kg (Rp)</label>
+                                <input type="number" class="form-control bg-light" id="price" name="price" 
+                                       min="0" value="10000" readonly>
+                                <small class="text-muted">Harga tetap Rp 10.000/kg</small>
                             </div>
+                        </div>
+                    </div>
+
+                    {{-- Preview Perhitungan --}}
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="mb-3"><i class="fas fa-calculator me-1"></i>Preview Perhitungan</h6>
+                            <table class="table table-sm mb-0">
+                                <tr>
+                                    <td>Subtotal <small class="text-muted">(<span id="preview-weight">{{ $order->weight }}</span> kg × Rp 10.000)</small></td>
+                                    <td class="text-end" id="preview-subtotal">
+                                        Rp {{ number_format($order->subtotal ?? ($order->weight * 10000), 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Diskon (<span id="preview-discount-percent">{{ $order->discount_percent ?? 0 }}</span>%)</td>
+                                    <td class="text-end text-danger" id="preview-discount-amount">
+                                        - Rp {{ number_format($order->discount_amount ?? 0, 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                                <tr class="fw-bold border-top">
+                                    <td>TOTAL</td>
+                                    <td class="text-end text-primary fs-5" id="preview-total">
+                                        Rp {{ number_format($order->total_price ?? ($order->weight * 10000), 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
                     </div>
 
@@ -87,16 +130,13 @@
                                     <option value="done" {{ $order->status == 'done' ? 'selected' : '' }}>Done</option>
                                     <option value="delivered" {{ $order->status == 'delivered' ? 'selected' : '' }}>Delivered</option>
                                 </select>
-                                @error('status')
-                                    <div class="text-danger small">{{ $message }}</div>
-                                @enderror
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="file" class="form-label">Upload File</label>
+                                <label for="file" class="form-label">Upload File Baru</label>
                                 <input type="file" class="form-control" id="file" name="file" accept=".jpg,.jpeg,.png,.pdf">
-                                <small class="text-muted">Max 5MB (jpg, jpeg, png, pdf)</small>
+                                <small class="text-muted">Max 5MB</small>
                                 @if($order->file_path)
                                     <div class="mt-2">
                                         <small>File saat ini: </small>
@@ -105,9 +145,6 @@
                                         </a>
                                     </div>
                                 @endif
-                                @error('file')
-                                    <div class="text-danger small">{{ $message }}</div>
-                                @enderror
                             </div>
                         </div>
                     </div>
@@ -115,24 +152,76 @@
                     <div class="mb-3">
                         <label for="notes" class="form-label">Catatan</label>
                         <textarea class="form-control" id="notes" name="notes" rows="3">{{ $order->notes }}</textarea>
-                        @error('notes')
-                            <div class="text-danger small">{{ $message }}</div>
-                        @enderror
                     </div>
 
                     <div class="d-flex justify-content-between">
                         <a href="/orders" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Kembali
                         </a>
-                        <div>
-                            <button type="submit" class="btn btn-warning">
-                                <i class="fas fa-save me-2"></i>Update Order
-                            </button>
-                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save me-2"></i>Update Order
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const customerSelect = document.getElementById('customer_id');
+    const weightInput = document.getElementById('weight');
+    const priceInput = document.getElementById('price');
+    const discountInfo = document.getElementById('discount-info');
+    const discountText = document.getElementById('discount-text');
+    
+    const PRICE_PER_KG = 10000;
+    let currentDiscountPercent = {{ $order->discount_percent ?? 0 }};
+
+    priceInput.value = PRICE_PER_KG;
+
+    function formatRupiah(angka) {
+        return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(angka));
+    }
+
+    function updateCalculation() {
+        const weight = parseFloat(weightInput?.value) || 0;
+        const subtotal = weight * PRICE_PER_KG;
+        const discountAmount = subtotal * (currentDiscountPercent / 100);
+        const total = subtotal - discountAmount;
+        
+        document.getElementById('preview-weight').textContent = weight;
+        document.getElementById('preview-subtotal').textContent = formatRupiah(subtotal);
+        document.getElementById('preview-discount-percent').textContent = currentDiscountPercent;
+        document.getElementById('preview-discount-amount').textContent = '- ' + formatRupiah(discountAmount);
+        document.getElementById('preview-total').textContent = formatRupiah(total);
+    }
+
+    customerSelect?.addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        
+        if (this.value) {
+            const discount = parseFloat(selected.dataset.discount) || 0;
+            currentDiscountPercent = discount;
+            
+            if (discount > 0) {
+                discountInfo.classList.remove('d-none');
+                discountText.textContent = discount + '%';
+            } else {
+                discountInfo.classList.add('d-none');
+            }
+        } else {
+            currentDiscountPercent = 0;
+            discountInfo.classList.add('d-none');
+        }
+        
+        updateCalculation();
+    });
+
+    weightInput?.addEventListener('input', updateCalculation);
+});
+</script>
+@endpush
 @endsection
