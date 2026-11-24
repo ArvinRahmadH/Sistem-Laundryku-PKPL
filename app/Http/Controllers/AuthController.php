@@ -27,7 +27,7 @@ class AuthController extends Controller
         ], 201);
     }
 
-    // For Web Login
+    
     public function webLogin(Request $request)
     {
         $credentials = $request->validate([
@@ -45,7 +45,7 @@ class AuthController extends Controller
         ])->onlyInput('email');
     }
 
-    // For Web Register
+    
     public function webRegister(Request $request)
     {
         $data = $request->validate([

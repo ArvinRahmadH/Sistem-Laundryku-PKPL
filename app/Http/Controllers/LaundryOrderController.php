@@ -176,23 +176,37 @@ class LaundryOrderController extends Controller
      */
 
 
-    
+
     private function calculateDiscount(array &$data): void
     {
-        $subtotal = ($data['weight'] ?? 0) * self::PRICE_PER_KG;
-        $discountPercent = 0;
+        // S1: Menghitung subtotal (berat x harga per kg)
+        $subtotal = ($data['weight'] ?? 0) * self::PRICE_PER_KG; 
+        
+        // S2: Menginisialisasi (menyetel awal) persentase diskon menjadi 0
+        $discountPercent = 0;                                     
 
-        if (!empty($data['customer_id'])) {
-            $customer = Customer::find($data['customer_id']);
-            if ($customer) {
-                $discountPercent = $customer->discount_percent;
+        // S3: Mengecek apakah customer_id tidak kosong
+        if (!empty($data['customer_id'])) {                       
+            
+            // S4: Mencari data customer ke database berdasarkan ID
+            $customer = Customer::find($data['customer_id']);     
+            
+            // S5: Mengecek apakah data customer berhasil ditemukan
+            if ($customer) {                                      
+                
+                // S6: Mengambil nilai persentase diskon milik customer
+                $discountPercent = $customer->discount_percent;   
             }
         }
 
-        $discountAmount = $subtotal * ($discountPercent / 100);
-        $totalPrice = $subtotal - $discountAmount;
+        // S7: Menghitung nominal potongan diskon dalam Rupiah
+        $discountAmount = $subtotal * ($discountPercent / 100);   
+        
+        // S8: Menghitung total akhir (subtotal dikurangi diskon)
+        $totalPrice = $subtotal - $discountAmount;                
 
-        $data['subtotal']         = $subtotal;
+        // S9: Memasukkan hasil perhitungan ke dalam array data
+        $data['subtotal']         = $subtotal;                    
         $data['discount_percent'] = $discountPercent;
         $data['discount_amount']  = $discountAmount;
         $data['total_price']      = $totalPrice;

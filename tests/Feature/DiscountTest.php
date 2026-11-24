@@ -92,4 +92,28 @@ class DiscountTest extends TestCase
         
         $this->assertEquals(17000, $data['total_price']); // Diskon 15%
     }
+
+        public function test_order_is_saved_to_database()
+    {
+        // ARRANGE
+        $user = \App\Models\User::create(['name' => 'A', 'email' => 'a@a.com', 'password' => '123']);
+        $this->actingAs($user);
+
+        $data = [
+            'customer_name' => 'Budi',
+            'service_type' => 'kiloan',
+            'weight' => 101,
+            'price' => 10000,
+        ];
+
+        // ACT
+        $response = $this->post('/orders', $data);
+
+        // ASSERT
+        $response->assertRedirect('/orders');
+        $this->assertDatabaseHas('laundry_orders', [
+            'customer_name' => 'Budi',
+            'weight' => 101
+        ]);
+    }
 }
